@@ -25,13 +25,13 @@ def count_tokens(msg):
     return num_tokens
 
 @backoff.on_exception(backoff.expo, openai.error.RateLimitError)
-async def generate_response(msgs):
+async def generate_response(system_prompt, msgs):
     print(f"Generating GPT response for prompt:\n{msgs[-1]['content']}")
     gpt_response = "Sorry, an error occurred. Please try again."
     try:
         response = await asyncio.wait_for(openai.ChatCompletion.acreate(
                 model="gpt-4",
-                messages=msgs,
+                messages=[system_prompt]+msgs,
                 max_tokens=MAX_COMPLETION_TOKENS,
                 n=1,
                 temperature=0.7,
