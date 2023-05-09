@@ -60,9 +60,14 @@ def split_response(response, max_length):
     response_chunks = []
     start_i = 0
     while start_i < len(response):
-        end_i = min([start_i + max_length, len(response)])
+        end_i = min(start_i + max_length, len(response))
         if end_i < len(response):
-            end_i = (found := response.rfind(" ", start_i, end_i)) if found != -1 else end_i
+            #end_i = (found := response.rfind(" ", start_i, end_i)) if found != -1 else end_i
+            print(f'{start_i}, {end_i}')
+            found = response.rfind(" ", start_i, end_i)
+            if found != -1:
+                end_i = found
+
         print(f"start_i: {start_i}, end_i: {end_i}, found: {found}")  # Debug print
         response_chunks.append(response[start_i:end_i])
         start_i = end_i + 1 if found != -1 else end_i
