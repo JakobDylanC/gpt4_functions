@@ -61,7 +61,8 @@ def split_response(response, max_length):
     start_index = 0
     while start_index < len(response):
         end_index = min(start_index + max_length, len(response))
-        end_index = (split_index := response.rfind(" ", start_index, end_index)) if (end_index < len(response) and split_index != -1) else end_index
+        split_index = response.rfind(" ", start_index, end_index) if end_index < len(response) else end_index
+        end_index = split_index if split_index != -1 else end_index
         response_chunks.append(response[start_index:end_index])
         start_index = end_index + 1 if split_index != -1 else end_index
 
