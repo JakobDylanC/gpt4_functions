@@ -1,5 +1,6 @@
 import os
 import openai
+import tiktoken
 import backoff
 import asyncio
 
@@ -12,14 +13,39 @@ MAX_COMPLETION_TOKENS = 1024 #customize here
 MAX_PROMPT_TOKENS = GPT4_MAX_TOTAL_TOKENS - MAX_COMPLETION_TOKENS
 TIMEOUT_SECONDS = 300
 
+encoding = tiktoken.get_encoding("cl100k_base")
+tokens_per_msg = 3
+tokens_per_name = 1
+def count_tokens(msgs):
+    num_tokens = 0
+    for msg in msgs:
+        num_tokens += tokens_per_msg
+        for key, value in msg.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":
+                num_tokens += tokens_per_name
+    num_tokens += 3
+    return num_tokens
+
+def append_message(msg, msgs):
+    num_deleted = 0
+    while (count_tokens(msgs) + count_tokens([msg])) > MAX_PROMPT_TOKENS:
+        try: 
+            msgs.pop(1)
+            num_deleted += 1
+        except IndexError: 
+            return -1
+    msgs.append(msg)
+    return num_deleted
+
 @backoff.on_exception(backoff.expo, openai.error.RateLimitError)
-async def generate_response(system_prompt, message_history):
-    print(f"Generating GPT response for prompt:\n{message_history[-1]['content']}")
+async def generate_response(msgs):
+    print(f"Generating GPT response for prompt:\n{msgs[-1]['content']}")
     gpt_response = "Sorry, an error occurred. Please try again."
     try:
         response = await asyncio.wait_for(openai.ChatCompletion.acreate(
                 model=MODEL,
-                messages=system_prompt+message_history,
+                messages=msgs,
                 max_tokens=MAX_COMPLETION_TOKENS,
                 n=1,
                 temperature=0.7,
@@ -28,13 +54,13 @@ async def generate_response(system_prompt, message_history):
         print(f"GPT response:\n{gpt_response}")
         print(f"Prompt tokens: {response['usage']['prompt_tokens']}  Completion tokens: {response['usage']['completion_tokens']}  Total tokens: {response['usage']['total_tokens']}")
         if response["usage"]["prompt_tokens"] > MAX_PROMPT_TOKENS:
-            message_history.pop(0)
+            msgs.pop(0)
 
-    except openai.error.InvalidRequestError:
-        if len(message_history) > 1:
-            print("Too many prompt tokens, trying again...")
-            message_history.pop(0)
-            gpt_response = await generate_response(system_prompt, message_history)
+    # except openai.error.InvalidRequestError:
+    #     if len(msgs) > 1:
+    #         print("Too many prompt tokens, trying again...")
+    #         msgs.pop(0)
+    #         gpt_response = await generate_response(msgs)
     except asyncio.TimeoutError:
         print("Timeout exceeded.")
 
