@@ -7,36 +7,22 @@ import asyncio
 if "OPENAI_API_KEY" not in os.environ:
     raise ValueError(f"Required environment variable OPENAI_API_KEY is not set.")
 openai.api_key = os.environ["OPENAI_API_KEY"]
-MODEL = "gpt-4"
 GPT4_MAX_TOTAL_TOKENS = 8192
+GPT4_TOKENS_PER_MESSAGE = 3
+GPT4_TOKENS_PER_NAME = 1
+GPT4_TOKENS_PER_MESSAGES = 3
 MAX_COMPLETION_TOKENS = 1024 #customize here
-MAX_PROMPT_TOKENS = GPT4_MAX_TOTAL_TOKENS - MAX_COMPLETION_TOKENS
+MAX_PROMPT_TOKENS = GPT4_MAX_TOTAL_TOKENS - MAX_COMPLETION_TOKENS - GPT4_TOKENS_PER_MESSAGES
 TIMEOUT_SECONDS = 300
-
 encoding = tiktoken.get_encoding("cl100k_base")
-tokens_per_msg = 3
-tokens_per_name = 1
-def count_tokens(msgs):
-    num_tokens = 0
-    for msg in msgs:
-        num_tokens += tokens_per_msg
-        for key, value in msg.items():
-            num_tokens += len(encoding.encode(value))
-            if key == "name":
-                num_tokens += tokens_per_name
-    num_tokens += 3
-    return num_tokens
 
-def append_message(msg, msgs):
-    num_deleted = 0
-    while (count_tokens(msgs) + count_tokens([msg])) > MAX_PROMPT_TOKENS:
-        try: 
-            msgs.pop(1)
-            num_deleted += 1
-        except IndexError: 
-            return -1
-    msgs.append(msg)
-    return num_deleted
+def count_tokens(msg):
+    num_tokens = GPT4_TOKENS_PER_MESSAGE
+    for key, value in msg.items():
+        num_tokens += len(encoding.encode(value))
+        if key == "name":
+            num_tokens += GPT4_TOKENS_PER_NAME
+    return num_tokens
 
 @backoff.on_exception(backoff.expo, openai.error.RateLimitError)
 async def generate_response(msgs):
@@ -44,7 +30,7 @@ async def generate_response(msgs):
     gpt_response = "Sorry, an error occurred. Please try again."
     try:
         response = await asyncio.wait_for(openai.ChatCompletion.acreate(
-                model=MODEL,
+                model="gpt-4",
                 messages=msgs,
                 max_tokens=MAX_COMPLETION_TOKENS,
                 n=1,
@@ -53,8 +39,9 @@ async def generate_response(msgs):
         gpt_response = response["choices"][0]["message"]["content"].strip()
         print(f"GPT response:\n{gpt_response}")
         print(f"Prompt tokens: {response['usage']['prompt_tokens']}  Completion tokens: {response['usage']['completion_tokens']}  Total tokens: {response['usage']['total_tokens']}")
-        if response["usage"]["prompt_tokens"] > MAX_PROMPT_TOKENS:
-            msgs.pop(0)
+        # if response["usage"]["prompt_tokens"] > MAX_PROMPT_TOKENS:
+        #     try: msgs.pop(1)
+        #     except IndexError: pass
 
     # except openai.error.InvalidRequestError:
     #     if len(msgs) > 1:
