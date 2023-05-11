@@ -6,6 +6,7 @@ import asyncio
 
 if "OPENAI_API_KEY" not in os.environ:
     raise ValueError(f"Required environment variable OPENAI_API_KEY is not set.")
+
 openai.api_key = os.environ["OPENAI_API_KEY"]
 GPT4_TOKENS_PER_MESSAGE = 3
 GPT4_TOKENS_PER_NAME = 1
@@ -35,7 +36,6 @@ async def generate_response(system_prompt, msgs):
         print("Timeout exceeded.")
     return gpt_response
 
-
 def count_tokens(msg):
     num_tokens = GPT4_TOKENS_PER_MESSAGE
     for key, value in msg.items():
@@ -43,7 +43,6 @@ def count_tokens(msg):
         if key == "name":
             num_tokens += GPT4_TOKENS_PER_NAME
     return num_tokens
-
 
 def split_response(response, max_length):
     if len(response) <= max_length:
